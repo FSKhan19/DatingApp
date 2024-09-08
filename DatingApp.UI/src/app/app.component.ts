@@ -9,7 +9,7 @@ import { Component, OnInit } from '@angular/core';
 export class AppComponent implements OnInit {
   title = 'Dating App';
   users: any;
-  apiBaseUrl = 'http://localhost:5233/api';
+  apiBaseUrl = 'https://localhost:7274/api';
 
   constructor(private http: HttpClient) {
 

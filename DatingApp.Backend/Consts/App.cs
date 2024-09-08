@@ -2,6 +2,6 @@
 {
     public class App
     {
-        public const string FRONT_END_BASE_URL = "http://localhost:4200";
+        public const string FRONT_END_BASE_URL = "https://localhost:4200";
     }
 }
