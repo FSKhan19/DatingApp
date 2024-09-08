@@ -8,7 +8,7 @@ builder.Services.AddDbContext<DatingAppContext>(options =>
 {
     // Retrieve the connection string from user secrets
     var connectionString = builder.Configuration.GetConnectionString("DatingAppContext");
-    options.UseSqlServer(connectionString);
+    options.UseSqlite(connectionString);
 });
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
