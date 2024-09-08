@@ -1,13 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DatingApp.Backend.Core.Entities;
 using DatingApp.Backend.Data;
-using Microsoft.AspNetCore.Http.HttpResults;
+using DatingApp.Backend.Models.User;
+using AutoMapper;
+using DatingApp.Backend.Consts;
 
 namespace DatingApp.Backend.Controllers
 {
@@ -16,138 +13,97 @@ namespace DatingApp.Backend.Controllers
     public class UsersController : Controller
     {
         private readonly DatingAppContext _context;
+        private readonly IMapper _mapper;
 
-        public UsersController(DatingAppContext context)
+        public UsersController(DatingAppContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
         // GET: Users
         [HttpGet]
-        public async Task<ActionResult<List<AppUser>>> Get()
+        public async Task<ActionResult<List<GetUser>>> Get()
         {
-            return await _context.Users.ToListAsync();
+            var appUser = await _context.Users.Where(x => !x.IsDeleted).ToListAsync();
+            return _mapper.Map<List<GetUser>>(appUser);
         }
 
         // GET: Users/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<AppUser>> Details(int? id)
+        public async Task<ActionResult<GetUser>> Details(int? id)
         {
             if (id == null)
             {
                 return NotFound();
             }
 
-            var appUser = await _context.Users
-                .FirstOrDefaultAsync(m => m.Id == id);
+            var appUser = await _context.Users.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
             if (appUser == null)
             {
                 return NotFound();
             }
 
-            return appUser;
+            return _mapper.Map<GetUser>(appUser);
         }
 
         // POST: Users/Create
         [HttpPost]
-        public async Task<IActionResult> Create([Bind("UserName")] AppUser appUser)
+        public async Task<ActionResult<GetUser>> Create(CreateUser user)
         {
+
             if (ModelState.IsValid)
             {
-                _context.Add(appUser);
+                var appUser = _mapper.Map<AppUser>(user);               
+                await _context.AddAsync(appUser);
                 await _context.SaveChangesAsync();
-                return Ok();
+                return _mapper.Map<GetUser>(appUser);
             }
             return BadRequest();
         }
 
-        //// GET: Users/Edit/5
-        //public async Task<IActionResult> Edit(int? id)
-        //{
-        //    if (id == null)
-        //    {
-        //        return NotFound();
-        //    }
 
-        //    var appUser = await _context.Users.FindAsync(id);
-        //    if (appUser == null)
-        //    {
-        //        return NotFound();
-        //    }
-        //    return View(appUser);
-        //}
+        // PUT: Users/Update
+        [HttpPut]
+        public async Task<ActionResult<GetUser>> Update(UpdateUser user)
+        {
 
-        //// POST: Users/Edit/5
-        //// To protect from overposting attacks, enable the specific properties you want to bind to.
-        //// For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-        //[HttpPost]
-        //[ValidateAntiForgeryToken]
-        //public async Task<IActionResult> Edit(int id, [Bind("UserName,IsDeleted,DeleterUserId,DeletionTime,LastModificationTime,LastModifierUserId,CreationTime,CreatorUserId,Id")] AppUser appUser)
-        //{
-        //    if (id != appUser.Id)
-        //    {
-        //        return NotFound();
-        //    }
+            if (ModelState.IsValid)
+            {
+                var appUser = await _context.Users.FirstOrDefaultAsync(m => m.Id == user.Id && !m.IsDeleted);
 
-        //    if (ModelState.IsValid)
-        //    {
-        //        try
-        //        {
-        //            _context.Update(appUser);
-        //            await _context.SaveChangesAsync();
-        //        }
-        //        catch (DbUpdateConcurrencyException)
-        //        {
-        //            if (!AppUserExists(appUser.Id))
-        //            {
-        //                return NotFound();
-        //            }
-        //            else
-        //            {
-        //                throw;
-        //            }
-        //        }
-        //        return RedirectToAction(nameof(Index));
-        //    }
-        //    return View(appUser);
-        //}
+                if (appUser == null)
+                    return NotFound(Error.Record.RECORD_NOT_FOUND);
 
-        //// GET: Users/Delete/5
-        //public async Task<IActionResult> Delete(int? id)
-        //{
-        //    if (id == null)
-        //    {
-        //        return NotFound();
-        //    }
+                appUser.UserName = user.UserName;
+                appUser.LastModificationTime = DateTime.Now;
 
-        //    var appUser = await _context.Users
-        //        .FirstOrDefaultAsync(m => m.Id == id);
-        //    if (appUser == null)
-        //    {
-        //        return NotFound();
-        //    }
+                var updatedUser = _context.Update(appUser);
+                await _context.SaveChangesAsync();
+                return _mapper.Map<GetUser>(appUser);
+            }
+            return BadRequest();
+        }
 
-        //    return View(appUser);
-        //}
+        // GET: Users/Delete/5
+        [HttpDelete]
+        public async Task<IActionResult> Delete(int? id)
+        {
+            if (id == null)
+            {
+                return NotFound();
+            }
 
-        //// POST: Users/Delete/5
-        //[HttpPost, ActionName("Delete")]
-        //[ValidateAntiForgeryToken]
-        //public async Task<IActionResult> DeleteConfirmed(int id)
-        //{
-        //    var appUser = await _context.Users.FindAsync(id);
-        //    if (appUser != null)
-        //    {
-        //        _context.Users.Remove(appUser);
-        //    }
+            var appUser = await _context.Users.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
+            if (appUser == null)
+            {
+                return NotFound(Error.Record.RECORD_NOT_FOUND);
+            }
+            appUser.IsDeleted = true;
+            _context.Users.Update(appUser);
+            await _context.SaveChangesAsync();
 
-        //    await _context.SaveChangesAsync();
-        //    return RedirectToAction(nameof(Index));
-        //}
-
-        //private bool AppUserExists(int id)
-        //{
-        //    return _context.Users.Any(e => e.Id == id);
-        //}
+            return Ok();
+        }
     }
 }
