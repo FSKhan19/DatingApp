@@ -8,9 +8,7 @@ using DatingApp.Backend.Consts;
 
 namespace DatingApp.Backend.Controllers
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class UsersController : Controller
+    public class UsersController : BaseApiController
     {
         private readonly DatingAppContext _context;
         private readonly IMapper _mapper;

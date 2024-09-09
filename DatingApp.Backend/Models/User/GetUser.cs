@@ -9,5 +9,7 @@ namespace DatingApp.Backend.Models.User
     {
         [SwaggerSchema("The username of the user.")]
         public string UserName { get; set; } = string.Empty;
+        public byte[] PasswordHash { get; set; }
+        public byte[] PasswordSalt { get; set; }
     }
 }
