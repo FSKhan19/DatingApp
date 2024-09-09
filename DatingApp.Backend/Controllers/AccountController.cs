@@ -3,6 +3,7 @@ using DatingApp.Backend.Consts;
 using DatingApp.Backend.Core.Entities;
 using DatingApp.Backend.Data;
 using DatingApp.Backend.Models.User;
+using DatingApp.Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
@@ -15,14 +16,16 @@ namespace DatingApp.Backend.Controllers
     {
         private readonly DatingAppContext _context;
         private readonly IMapper _mapper;
-        public AccountController(DatingAppContext context, IMapper mapper)
+        private readonly ITokenService _tokenService;
+        public AccountController(DatingAppContext context, IMapper mapper, ITokenService tokenService)
         {
             _context = context;
             _mapper = mapper;
+            _tokenService = tokenService;
         }
 
         [HttpPost("Register")]
-        public async Task<ActionResult<GetUser>> Register(RegisterUser user)
+        public async Task<ActionResult<RegisterUserResponse>> Register(RegisterUserRequest user)
         {
             if (await IsUserExists(user.UserName))
                 return BadRequest(Error.Record.USERNAME_ALREADY_TAKEN);
@@ -36,11 +39,15 @@ namespace DatingApp.Backend.Controllers
             };
             await _context.Users.AddAsync(appUser);
             await _context.SaveChangesAsync();
-            return _mapper.Map<GetUser>(appUser);
+            return new RegisterUserResponse
+            {
+                UserName = user.UserName,
+                Token = _tokenService.CreateToken(appUser)
+            };
         }
 
         [HttpPost("Login")]
-        public async Task<ActionResult<GetUser>> Login(LoginUser user)
+        public async Task<ActionResult<LoginUserResponse>> Login(LoginUserRequest user)
         {
             var appUser = await _context.Users.SingleOrDefaultAsync(x=>x.UserName == user.UserName);
 
@@ -50,16 +57,17 @@ namespace DatingApp.Backend.Controllers
             using HMACSHA512 hmac = new HMACSHA512(appUser.PasswordSalt);
             var computedhash = hmac.ComputeHash(Encoding.UTF8.GetBytes(user.Password));
 
-            if (appUser.PasswordHash == computedhash)
+            for (int i = 0; i < computedhash.Length; i++)
             {
-                for (int i = 0; i < computedhash.Length; i++)
-                {
-                    if (appUser.PasswordHash[i] != computedhash[i])
-                        return Unauthorized(Error.Record.INVALID_PASSWORD);
-                }
+                if (appUser.PasswordHash[i] != computedhash[i])
+                    return Unauthorized(Error.Record.INVALID_PASSWORD);
             }
 
-            return _mapper.Map<GetUser>(appUser);
+            return new LoginUserResponse
+            {
+                UserName = user.UserName,
+                Token = _tokenService.CreateToken(appUser)
+            };
         }
 
         private async Task<bool> IsUserExists(string userName)
