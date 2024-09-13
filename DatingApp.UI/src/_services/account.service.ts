@@ -33,4 +33,18 @@ export class AccountService {
   setCurrentUser(user: User) {
     this.currentUserSource.next(user);
   }
+
+  register(model: any) {
+    return this.http
+      .post<User>(this.apiBaseUrl + '/Account/Register', model)
+      .pipe(
+        map((response: User) => {
+          const user = response;
+          if (user) {
+            localStorage.setItem('user', JSON.stringify(user));
+            this.currentUserSource.next(user);
+          }
+        })
+      );
+  }
 }
