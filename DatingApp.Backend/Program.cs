@@ -11,11 +11,19 @@ using System.Security.Cryptography.X509Certificates;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using DatingApp.Backend.Extensions;
+using DatingApp.Backend.Middlewares;
+using Microsoft.AspNetCore.Mvc;
+using static System.Net.Mime.MediaTypeNames;
+using DatingApp.Backend.OutputFormatters;
 
 var builder = WebApplication.CreateBuilder(args);
 // App Services
 builder.Services.AddApplicationServices(builder.Configuration);
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    // Add your custom output formatter at the beginning of the list
+    options.OutputFormatters.Insert(0, new CustomJsonOutputFormatter());
+});
 builder.Services.AddSwaggerServices();
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(AutoMapperProfile).Assembly);
@@ -41,6 +49,8 @@ app.UseCors(c =>
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>(); // Register exception handling middleware
 
 app.MapControllers();
 

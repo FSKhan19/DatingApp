@@ -5,9 +5,9 @@ namespace DatingApp.Backend.Models.User
 {
     public class RegisterUserRequest
     {
-        [Required(AllowEmptyStrings = false, ErrorMessage = Error.DataValidation.ENTER_VALID_STRING)]
+        [Required(AllowEmptyStrings = false)]
         public string UserName { get; set; }
-        [Required(AllowEmptyStrings = false, ErrorMessage = Error.DataValidation.ENTER_VALID_STRING)]
+        [Required(AllowEmptyStrings = false)]
         public string Password { get; set; }
     }
     public class RegisterUserResponse
