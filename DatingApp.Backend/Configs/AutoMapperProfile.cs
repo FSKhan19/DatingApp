@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using DatingApp.Backend.Core.Entities;
+using DatingApp.Backend.Dtos.User;
 using DatingApp.Backend.Models.User;
 
 namespace DatingApp.Backend.Configs
@@ -9,8 +10,8 @@ namespace DatingApp.Backend.Configs
         public AutoMapperProfile()
         {
             #region AppUsers
-            CreateMap<CreateUser, AppUser>();
-            CreateMap<AppUser, GetUser>().ReverseMap();
+            CreateMap<CreateUserInput, AppUser>();
+            CreateMap<AppUser, GetUserDto>().ReverseMap();
             #endregion
         }
     }

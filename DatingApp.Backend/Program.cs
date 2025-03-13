@@ -17,15 +17,27 @@ using static System.Net.Mime.MediaTypeNames;
 using DatingApp.Backend.OutputFormatters;
 using DatingApp.Backend.Core.Entities;
 using Microsoft.AspNetCore.Identity;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 // App Services
 builder.Services.AddApplicationServices(builder.Configuration);
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = actionContext =>
+    {
+        return new BadRequestObjectResult(actionContext.ModelState);
+    };
+});
 builder.Services.AddControllers(options =>
 {
     // Add your custom output formatter at the beginning of the list
     options.OutputFormatters.Insert(0, new CustomJsonOutputFormatter());
 });
+
+// Add FluentValidation with automatic registration and auto-validation
+builder.Services.AddFluentValidationWithAutoRegistration(Assembly.GetExecutingAssembly());
+// Add Swagger
 builder.Services.AddSwaggerServices();
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(AutoMapperProfile).Assembly);
@@ -39,7 +51,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "DatingApp v1"));
 }
 
 app.UseHttpsRedirection();

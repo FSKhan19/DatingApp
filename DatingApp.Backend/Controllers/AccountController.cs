@@ -1,6 +1,8 @@
 ﻿using AutoMapper;
 using DatingApp.Backend.Consts;
+using DatingApp.Backend.Core;
 using DatingApp.Backend.Core.Entities;
+using DatingApp.Backend.Core.Repositories;
 using DatingApp.Backend.Data;
 using DatingApp.Backend.Models.User;
 using DatingApp.Backend.Services.Interfaces;
@@ -14,12 +16,12 @@ namespace DatingApp.Backend.Controllers
 {
     public class AccountController : BaseApiController
     {
-        private readonly DatingAppContext _context;
         private readonly IMapper _mapper;
         private readonly ITokenService _tokenService;
-        public AccountController(DatingAppContext context, IMapper mapper, ITokenService tokenService)
+        private readonly IUnitOfWork _unitOfWork;
+        public AccountController(IUnitOfWork unitOfWork, IMapper mapper, ITokenService tokenService)
         {
-            _context = context;
+            _unitOfWork = unitOfWork;
             _mapper = mapper;
             _tokenService = tokenService;
         }
@@ -37,8 +39,10 @@ namespace DatingApp.Backend.Controllers
                 PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(user.Password)),
                 PasswordSalt = hmac.Key
             };
-            await _context.Users.AddAsync(appUser);
-            await _context.SaveChangesAsync();
+            await _unitOfWork.CreateTransactionAsync();
+            var repoUser = _unitOfWork.GetRepository<AppUser>();
+            await repoUser.InsertAsync(appUser);
+            await _unitOfWork.CommitAsync();
             return new RegisterUserResponse
             {
                 UserName = user.UserName,
@@ -49,7 +53,8 @@ namespace DatingApp.Backend.Controllers
         [HttpPost("Login")]
         public async Task<ActionResult<LoginUserResponse>> Login(LoginUserRequest user)
         {
-            var appUser = await _context.Users.SingleOrDefaultAsync(x=>x.UserName == user.UserName);
+            var repoUser = _unitOfWork.GetRepository<AppUser>();
+            var appUser = await repoUser.SingleAsync(x=>x.UserName == user.UserName);
 
             if (appUser == null)
                 return Unauthorized(Error.Record.INVALID_USERNAME);
@@ -72,7 +77,8 @@ namespace DatingApp.Backend.Controllers
 
         private async Task<bool> IsUserExists(string userName)
         {
-            return await _context.Users.AnyAsync(x=>x.UserName.ToLower() == userName.ToLower());
+            var repoUser = _unitOfWork.GetRepository<AppUser>();
+            return await repoUser.AnyAsync(x=>x.UserName.ToLower() == userName.ToLower());
         }
     }
 }

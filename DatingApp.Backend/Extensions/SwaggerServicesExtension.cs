@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using MicroElements.Swashbuckle.FluentValidation.AspNetCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -40,6 +41,9 @@ namespace DatingApp.Backend.Extensions
                     }
                 });
             });
+
+            // Add FluentValidation rules to Swagger
+            services.AddFluentValidationRulesToSwagger();
 
             return services;
         }

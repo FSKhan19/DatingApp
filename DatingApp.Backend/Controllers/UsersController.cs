@@ -1,109 +1,75 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using DatingApp.Backend.Core.Entities;
-using DatingApp.Backend.Data;
-using DatingApp.Backend.Models.User;
-using AutoMapper;
-using DatingApp.Backend.Consts;
 using Microsoft.AspNetCore.Authorization;
+using DatingApp.Backend.Validators.Common;
+using DatingApp.Backend.Models.Common;
+using DatingApp.Backend.Services.Interfaces;
+using DatingApp.Backend.Dtos.User;
+using DatingApp.Backend.Models.User;
+using DatingApp.Backend.Models;
 
 namespace DatingApp.Backend.Controllers
 {
-    [Authorize]
+    //[Authorize]
     public class UsersController : BaseApiController
     {
-        private readonly DatingAppContext _context;
-        private readonly IMapper _mapper;
+        private readonly IUserService _userService;
 
-        public UsersController(DatingAppContext context, IMapper mapper)
+        public UsersController(IUserService userService)
         {
-            _context = context;
-            _mapper = mapper;
+            _userService = userService;
         }
 
         // GET: Users
         [HttpGet]
-        public async Task<ActionResult<List<GetUser>>> Get()
+        public async Task<ActionResult<PaginatedResponse<GetUserDto>>> Get([FromQuery] PaginationQuery query)
         {
-            var appUser = await _context.Users.Where(x => !x.IsDeleted).ToListAsync();
-            return _mapper.Map<List<GetUser>>(appUser);
+            // Validation is handled automatically by FluentValidation
+            var (users, totalCount) = await _userService.GetAsync(query.PageNumber, query.PageSize);
+
+            var response = new PaginatedResponse<GetUserDto>
+            {
+                Items = users,
+                PageNumber = query.PageNumber,
+                PageSize = query.PageSize,
+                TotalCount = totalCount,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)query.PageSize)
+            };
+
+            return Ok(response);
         }
 
         // GET: Users/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<GetUser>> Details(int? id)
+        [HttpGet("{id:int}")]
+        public async Task<ActionResult<GetUserDto>> Get([FromRoute] IdRequest input)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var appUser = await _context.Users.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
-            if (appUser == null)
-            {
-                return NotFound();
-            }
-
-            return _mapper.Map<GetUser>(appUser);
+            var result = await _userService.GetAsync(input.id);
+            return result.IsSuccess ? Ok(result.Value) : NotFound(result.Error);
         }
 
-        //// POST: Users/Create
-        //[HttpPost]
-        //public async Task<ActionResult<GetUser>> Create(CreateUser user)
-        //{
-
-        //    if (ModelState.IsValid)
-        //    {
-        //        var appUser = _mapper.Map<AppUser>(user);               
-        //        await _context.AddAsync(appUser);
-        //        await _context.SaveChangesAsync();
-        //        return _mapper.Map<GetUser>(appUser);
-        //    }
-        //    return BadRequest();
-        //}
+        // POST: Users/Create
+        [HttpPost]
+        public async Task<ActionResult<GetUserDto>> Create(CreateUserInput input)
+        {
+            var result = await _userService.CreateAsync(input);
+            return result.IsSuccess ? CreatedAtAction(nameof(Create), new { id = result.Value.Id }, result.Value) : BadRequest(result.Error);
+        }
 
 
-        //// PUT: Users/Update
-        //[HttpPut]
-        //public async Task<ActionResult<GetUser>> Update(UpdateUser user)
-        //{
-
-        //    if (ModelState.IsValid)
-        //    {
-        //        var appUser = await _context.Users.FirstOrDefaultAsync(m => m.Id == user.Id && !m.IsDeleted);
-
-        //        if (appUser == null)
-        //            return NotFound(Error.Record.RECORD_NOT_FOUND);
-
-        //        appUser.UserName = user.UserName;
-        //        appUser.LastModificationTime = DateTime.Now;
-
-        //        var updatedUser = _context.Update(appUser);
-        //        await _context.SaveChangesAsync();
-        //        return _mapper.Map<GetUser>(appUser);
-        //    }
-        //    return BadRequest();
-        //}
+        // PUT: Users/Update
+        [HttpPut("{id:int}")]
+        public async Task<ActionResult<GetUserDto>> Update([FromRoute] IdRequest id, UpdateUserInput input)
+        {
+            input.Id = id.id; // Ensure the ID matches the route parameter
+            var result = await _userService.UpdateAsync(input);
+            return result.IsSuccess ? NoContent() : BadRequest(result.Error);
+        }
 
         // GET: Users/Delete/5
-        [HttpDelete]
-        public async Task<IActionResult> Delete(int? id)
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete([FromRoute] IdRequest input)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var appUser = await _context.Users.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
-            if (appUser == null)
-            {
-                return NotFound(Error.Record.RECORD_NOT_FOUND);
-            }
-            appUser.IsDeleted = true;
-            _context.Users.Update(appUser);
-            await _context.SaveChangesAsync();
-
-            return Ok();
+            var result = await _userService.DeleteAsync(input.id);
+            return result.IsSuccess ? NoContent() : NotFound(result.Error);
         }
     }
 }
