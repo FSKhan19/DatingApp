@@ -1,6 +1,6 @@
-@DatingApp.Backend_HostAddress = http://localhost:5233
+@DatingApp.Backend_HostAddress = http://localhost:7274
 
-GET {{DatingApp.Backend_HostAddress}}/weatherforecast/
+GET {{DatingApp.Backend_HostAddress}}/swagger/index.html
 Accept: application/json
 
 ###

@@ -103,7 +103,22 @@ namespace DatingApp.Backend.Data.Migrations
                     b.Property<long?>("CreatorUserId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long?>("DeleterUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsMain")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("LastModifierUserId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("PublicId")

@@ -10,7 +10,7 @@ namespace DatingApp.Backend.Extensions
 {
     public static class ApplicationServicesExtension
     {
-        public static IServiceCollection AddApplicationServices(this IServiceCollection services, IConfiguration configuration)
+        public static IServiceCollection AddApplicationServices(this IServiceCollection services)
         {
             // Explicit registrations
             services.AddScoped<ITokenService, TokenService>();
@@ -22,13 +22,6 @@ namespace DatingApp.Backend.Extensions
             RegisterServicesByInterface<IScopedService>(services, ServiceLifetime.Scoped);
             RegisterServicesByInterface<ITransientService>(services, ServiceLifetime.Transient);
             RegisterServicesByInterface<ISingletonService>(services, ServiceLifetime.Singleton);
-
-            // DbContext - scoped lifetime
-            services.AddDbContext<DatingAppContext>(options =>
-            {
-                var connectionString = configuration.GetConnectionString("DatingAppContext");
-                options.UseSqlite(connectionString);
-            });
 
             return services;
         }

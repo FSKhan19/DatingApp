@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace DatingApp.Backend.Core.Entities
 {
     [Table("Photos")]
-    public class Photo: CreationAuditedEntity<int>
+    public class Photo: FullAuditedEntity<int>
     {
         public string? Url { get; set; }
         public bool IsMain { get; set; }

@@ -1,4 +1,3 @@
-using DatingApp.Backend.Configs;
 using DatingApp.Backend.Consts;
 using DatingApp.Backend.Data;
 using DatingApp.Backend.Services;
@@ -18,10 +17,19 @@ using DatingApp.Backend.OutputFormatters;
 using DatingApp.Backend.Core.Entities;
 using Microsoft.AspNetCore.Identity;
 using System.Reflection;
+using DatingApp.Backend.Configs.Mapping;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// App Configurations
+builder.Services.AddConfigurations(builder.Configuration);
+
+// App Configurations
+builder.Services.AddDatabase(builder.Configuration);
+
 // App Services
-builder.Services.AddApplicationServices(builder.Configuration);
+builder.Services.AddApplicationServices();
+
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = actionContext =>
@@ -29,24 +37,34 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         return new BadRequestObjectResult(actionContext.ModelState);
     };
 });
+
+// Add FluentValidation with automatic registration and auto-validation
+builder.Services.AddFluentValidationWithAutoRegistration(Assembly.GetExecutingAssembly());
+
+// Add AutoMapper
+builder.Services.AddAutoMapper(typeof(AutoMapperProfile).Assembly);
+
+// Add CORS
+builder.Services.AddCors();
+
+// Add Swagger
+builder.Services.AddSwaggerServices();
+
 builder.Services.AddControllers(options =>
 {
     // Add your custom output formatter at the beginning of the list
     options.OutputFormatters.Insert(0, new CustomJsonOutputFormatter());
 });
 
-// Add FluentValidation with automatic registration and auto-validation
-builder.Services.AddFluentValidationWithAutoRegistration(Assembly.GetExecutingAssembly());
-// Add Swagger
-builder.Services.AddSwaggerServices();
-// Add AutoMapper
-builder.Services.AddAutoMapper(typeof(AutoMapperProfile).Assembly);
-// Add CORS
-builder.Services.AddCors();
-// JWT
+// JWT and Identity Services
 builder.Services.AddIdentityServices(builder.Configuration);
+
 var app = builder.Build();
 
+// Apply database migrations and seed data
+await app.ApplySeedDataAsync();
+
+#region HTTP request pipeline
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -54,32 +72,24 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "DatingApp v1"));
 }
 
+// Register exception handling middleware
+app.UseMiddleware<ExceptionHandlingMiddleware>();  // Exception handling middleware should be first
+
+// Redirect HTTP to HTTPS
 app.UseHttpsRedirection();
 
+// Configure CORS
 app.UseCors(c =>
 {
     c.AllowAnyHeader().AllowAnyMethod().WithOrigins(App.FRONT_END_BASE_URL);
 });
 
+// Authentication and Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseMiddleware<ExceptionHandlingMiddleware>(); // Register exception handling middleware
-
+// Map controllers
 app.MapControllers();
-
-using var scope = app.Services.CreateScope();
-var services = scope.ServiceProvider;
-try
-{
-    var context = services.GetRequiredService<DatingAppContext>();
-    await context.Database.MigrateAsync();
-    await Seed.SeedUsers(context);
-}
-catch (Exception ex)
-{
-    var logger = services.GetRequiredService<ILogger<Program>>();
-    logger.LogError(ex, "An error occurred during migration");
-}
+#endregion
 
 app.Run();

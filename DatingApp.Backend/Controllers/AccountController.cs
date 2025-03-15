@@ -1,9 +1,6 @@
 ﻿using AutoMapper;
 using DatingApp.Backend.Consts;
-using DatingApp.Backend.Core;
-using DatingApp.Backend.Core.Entities;
-using DatingApp.Backend.Core.Repositories;
-using DatingApp.Backend.Data;
+using DatingApp.Backend.Dtos.User;
 using DatingApp.Backend.Models.User;
 using DatingApp.Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -16,69 +13,57 @@ namespace DatingApp.Backend.Controllers
 {
     public class AccountController : BaseApiController
     {
-        private readonly IMapper _mapper;
+        private readonly IUserService _userService;
         private readonly ITokenService _tokenService;
-        private readonly IUnitOfWork _unitOfWork;
-        public AccountController(IUnitOfWork unitOfWork, IMapper mapper, ITokenService tokenService)
+        private readonly IMapper _mapper;
+        public AccountController(IUserService userService, IMapper mapper, ITokenService tokenService)
         {
-            _unitOfWork = unitOfWork;
+            _userService = userService;
             _mapper = mapper;
             _tokenService = tokenService;
         }
 
         [HttpPost("Register")]
-        public async Task<ActionResult<RegisterUserResponse>> Register(RegisterUserRequest user)
+        public async Task<ActionResult<RegisterUserDto>> Register(RegisterUserInput user)
         {
-            if (await IsUserExists(user.UserName))
-                return BadRequest(Error.Record.USERNAME_ALREADY_TAKEN);
+            var createUserInput = _mapper.Map<CreateUserInput>(user);
+            var result = await _userService.CreateAsync(createUserInput);
+            if (!result.IsSuccess)
+                return BadRequest(result.Error);
 
-            using HMACSHA512 hmac = new HMACSHA512();
-            var appUser = new AppUser()
+            var userCredentials = result.Value;
+
+            var token = _tokenService.CreateToken(userCredentials);
+
+            return Ok(new RegisterUserDto
             {
                 UserName = user.UserName,
-                PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(user.Password)),
-                PasswordSalt = hmac.Key
-            };
-            await _unitOfWork.CreateTransactionAsync();
-            var repoUser = _unitOfWork.GetRepository<AppUser>();
-            await repoUser.InsertAsync(appUser);
-            await _unitOfWork.CommitAsync();
-            return new RegisterUserResponse
-            {
-                UserName = user.UserName,
-                Token = _tokenService.CreateToken(appUser)
-            };
+                Token = token
+            });
         }
 
         [HttpPost("Login")]
-        public async Task<ActionResult<LoginUserResponse>> Login(LoginUserRequest user)
+        public async Task<ActionResult<LoginUserDto>> Login(LoginUserInput user)
         {
-            var repoUser = _unitOfWork.GetRepository<AppUser>();
-            var appUser = await repoUser.SingleAsync(x=>x.UserName == user.UserName);
+            var res = await _userService.ValidateUsernameAsync(user.UserName);
+            if (!res.IsSuccess)
+                return Unauthorized(res.Error);
 
-            if (appUser == null)
-                return Unauthorized(Error.Record.INVALID_USERNAME);
+            var userCredentials = res.Value;
 
-            using HMACSHA512 hmac = new HMACSHA512(appUser.PasswordSalt);
+            using HMACSHA512 hmac = new HMACSHA512(userCredentials.PasswordSalt);
             var computedhash = hmac.ComputeHash(Encoding.UTF8.GetBytes(user.Password));
 
-            for (int i = 0; i < computedhash.Length; i++)
-            {
-                if (appUser.PasswordHash[i] != computedhash[i])
-                    return Unauthorized(Error.Record.INVALID_PASSWORD);
-            }
+            if (!CryptographicOperations.FixedTimeEquals(userCredentials.PasswordHash, computedhash))
+                return Unauthorized(Error.Record.INVALID_PASSWORD);
 
-            return new LoginUserResponse
-            {
-                UserName = user.UserName,
-                Token = _tokenService.CreateToken(appUser)
-            };
-        }
+            var token = _tokenService.CreateToken(userCredentials);
 
-        private async Task<bool> IsUserExists(string userName)
-        {
-            var repoUser = _unitOfWork.GetRepository<AppUser>();
-            return await repoUser.AnyAsync(x=>x.UserName.ToLower() == userName.ToLower());
+            return Ok(new LoginUserDto
+            {
+                UserName = userCredentials.UserName,
+                Token = token
+            });
         }
     }
 }

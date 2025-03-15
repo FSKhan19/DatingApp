@@ -1,6 +1,5 @@
 ﻿using DatingApp.Backend.Core.Auditing.Interfaces;
 using DatingApp.Backend.Data;
-using Microsoft.EntityFrameworkCore.Query;
 using System.Linq.Expressions;
 
 namespace DatingApp.Backend.Core.Repositories
@@ -18,6 +17,8 @@ namespace DatingApp.Backend.Core.Repositories
         {
 
         }
+
+        #region Query/Get
         public abstract IQueryable<TEntity> GetAll();
 
         public virtual IQueryable<TEntity> GetAllReadonly()
@@ -120,8 +121,13 @@ namespace DatingApp.Backend.Core.Repositories
         {
             return Get(id);
         }
-        public abstract Task<IList<TEntity>> GetAllByCondition(Expression<Func<TEntity, bool>> expression, Func<IQueryable<TEntity>, IIncludableQueryable<TEntity, object>> includes = null);
+        public abstract Task<IList<TEntity>> GetAllByCondition(Expression<Func<TEntity, bool>> expression, 
+                                                               Func<IQueryable<TEntity>,
+                                                               IQueryable<TEntity>> includes = null);
         public abstract Task<bool> AnyAsync(Expression<Func<TEntity, bool>> predicate);
+        #endregion
+
+        #region Insert
         public abstract TEntity Insert(TEntity entity);
 
         public virtual Task<TEntity> InsertAsync(TEntity entity)
@@ -140,7 +146,9 @@ namespace DatingApp.Backend.Core.Repositories
             return insertedEntity.Id;
         }
         public abstract Task AddRangeAsync(IList<TEntity> entities);
+        #endregion
 
+        #region Update
         public abstract TEntity Update(TEntity entity);
 
         public virtual Task<TEntity> UpdateAsync(TEntity entity)
@@ -163,6 +171,11 @@ namespace DatingApp.Backend.Core.Repositories
         }
         public abstract void UpdateRange(IList<TEntity> entities);
 
+        public abstract Task<int> ExecuteUpdateAsync(Expression<Func<TEntity, bool>> predicate,
+            IDictionary<Expression<Func<TEntity, object>>, object> propertyUpdates);
+        #endregion
+
+        #region Delete
         public abstract void Delete(TEntity entity);
 
         public virtual Task DeleteAsync(TEntity entity)
@@ -199,6 +212,10 @@ namespace DatingApp.Backend.Core.Repositories
 
         public abstract Task DeleteRangeAsync(IList<TPrimaryKey> entityIds);
 
+        public abstract Task<int> ExecuteDeleteAsync(Expression<Func<TEntity, bool>> predicate);
+        #endregion
+
+        #region Aggregate
         public virtual int Count()
         {
             return GetAllReadonly().Count();
@@ -238,7 +255,9 @@ namespace DatingApp.Backend.Core.Repositories
         {
             return Task.FromResult(LongCount(predicate));
         }
+        #endregion
 
+        #region Helper
         protected virtual Expression<Func<TEntity, bool>> CreateEqualityExpressionForId(TPrimaryKey id)
         {
             var lambdaParam = Expression.Parameter(typeof(TEntity));
@@ -254,6 +273,21 @@ namespace DatingApp.Backend.Core.Repositories
 
             return Expression.Lambda<Func<TEntity, bool>>(lambdaBody, lambdaParam);
         }
+        #endregion
 
+        #region RAW SQL
+        /// <inheritdoc />
+        public abstract Task<int> ExecuteRawSqlAsync(string sql, params object[] parameters);
+        /// <inheritdoc />
+        public abstract Task<IEnumerable<TResult>> ExecuteQueryAsync<TResult>(string sql, params object[] parameters) where TResult : class;
+        #endregion
+
+        #region Store Procedure
+        /// <inheritdoc />
+        public abstract Task<int> ExecuteStoredProcedureAsync(string procedureName, params object[] parameters);
+        /// <inheritdoc />
+        public abstract Task<IEnumerable<TResult>> ExecuteStoredProcedureQueryAsync<TResult>(string procedureName, params object[] parameters)
+            where TResult : class;
+        #endregion
     }
 }

@@ -1,7 +1,4 @@
 ﻿using DatingApp.Backend.Core.Auditing.Interfaces;
-using Microsoft.CodeAnalysis.Elfie.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
-using NuGet.Protocol.Core.Types;
 using System.Linq.Expressions;
 
 namespace DatingApp.Backend.Core.Repositories
@@ -162,7 +159,8 @@ namespace DatingApp.Backend.Core.Repositories
         /// <returns>Entity</returns>
         TEntity Load(TPrimaryKey id);
 
-        Task<IList<TEntity>> GetAllByCondition(Expression<Func<TEntity, bool>> expression, Func<IQueryable<TEntity>, IIncludableQueryable<TEntity, object>> includes = null);
+        Task<IList<TEntity>> GetAllByCondition(Expression<Func<TEntity, bool>> expression, 
+                                               Func<IQueryable<TEntity>, IQueryable<TEntity>> includes = null);
         Task<bool> AnyAsync(Expression<Func<TEntity, bool>> predicate);
         #endregion
 
@@ -198,6 +196,19 @@ namespace DatingApp.Backend.Core.Repositories
         /// <returns>Id of the entity</returns>
         Task<TPrimaryKey> InsertAndGetIdAsync(TEntity entity);
 
+        /// <summary>
+        /// Adds a collection of entities to the database using EF Core's ChangeTracker.
+        /// Suitable for small datasets requiring relationship maintenance and validation.
+        /// </summary>
+        /// <param name="entities">List of entities to add</param>
+        /// <remarks>
+        /// Characteristics:
+        /// - Tracks entities through EF Core's ChangeTracker
+        /// - Maintains navigation property relationships
+        /// - Runs validation attributes and business rules
+        /// - Populates auto-generated properties (e.g., IDs)
+        /// - O(n) complexity (scales linearly with entity count)
+        /// </remarks>
         Task AddRangeAsync(IList<TEntity> entities);
 
         #endregion
@@ -232,7 +243,37 @@ namespace DatingApp.Backend.Core.Repositories
         /// <returns>Updated entity</returns>
         Task<TEntity> UpdateAsync(TPrimaryKey id, Func<TEntity, Task> updateAction);
 
+        /// <summary>
+        /// Updates a collection of entities using EF Core's ChangeTracker.
+        /// Suitable for small datasets requiring business logic/validation.
+        /// Tracks entities and maintains relationships.
+        /// </summary>
+        /// <param name="entities">List of entities to update</param>
+        /// <remarks>
+        /// - Use for updates requiring validation/concurrency checks
+        /// - Maintains navigation property relationships
+        /// - Not recommended for bulk operations (>100 records)
+        /// - Triggers EF Core change tracking and events
+        /// </remarks>
         void UpdateRange(IList<TEntity> entities);
+
+        /// <summary>
+        /// Executes a bulk update operation directly in the database.
+        /// Bypasses EF Core change tracking for maximum performance.
+        /// </summary>
+        /// <param name="predicate">Filter condition for entities to update</param>
+        /// <param name="updateExpression">Property update definition</param>
+        /// <returns>Number of affected rows</returns>
+        /// <remarks>
+        /// - Use for large-scale updates (>100 records)
+        /// - Does NOT track entities or maintain relationships
+        /// - Ignores global query filters (explicitly include IsDeleted checks if needed)
+        /// - Direct SQL translation (no entity materialization)
+        /// - O(1) complexity regardless of dataset size
+        /// </remarks>
+        Task<int> ExecuteUpdateAsync(
+            Expression<Func<TEntity, bool>> predicate,
+            IDictionary<Expression<Func<TEntity, object>>, object> propertyUpdates);
 
         #endregion
 
@@ -279,7 +320,36 @@ namespace DatingApp.Backend.Core.Repositories
         /// </summary>
         /// <param name="predicate">A condition to filter entities</param>
         Task DeleteAsync(Expression<Func<TEntity, bool>> predicate);
+
+        /// <summary>
+        /// Deletes multiple entities by their primary keys using EF Core's ChangeTracker.
+        /// Suitable for small datasets requiring relationship maintenance.
+        /// </summary>
+        /// <param name="entityIds">Primary keys of entities to delete</param>
+        /// <remarks>
+        /// - Tracks entities through EF Core
+        /// - Maintains referential integrity constraints
+        /// - Not recommended for bulk deletions (>100 records)
+        /// - Triggers entity removal events
+        /// - Handles navigation property cleanup
+        /// </remarks>
         Task DeleteRangeAsync(IList<TPrimaryKey> entityIds);
+
+        /// <summary>
+        /// Executes a bulk delete operation directly in the database.
+        /// Bypasses EF Core change tracking for maximum performance.
+        /// </summary>
+        /// <param name="predicate">Filter condition for entities to delete</param>
+        /// <returns>Number of deleted rows</returns>
+        /// <remarks>
+        /// - Use for large-scale deletions (>100 records)
+        /// - Does NOT track entities or maintain relationships
+        /// - Ignores global query filters (explicitly include IsDeleted checks if needed)
+        /// - Direct SQL translation (no entity materialization)
+        /// - O(1) complexity regardless of dataset size
+        /// - WARNING: Permanently deletes records (bypasses soft delete patterns)
+        /// </remarks>
+        Task<int> ExecuteDeleteAsync(Expression<Func<TEntity, bool>> predicate);
         #endregion
 
         #region Aggregates
@@ -338,6 +408,46 @@ namespace DatingApp.Backend.Core.Repositories
         /// <returns>Count of entities</returns>
         Task<long> LongCountAsync(Expression<Func<TEntity, bool>> predicate);
 
+        #endregion
+
+        #region Raw SQL
+        /// <summary>
+        /// Executes a raw SQL command (e.g., INSERT, UPDATE, DELETE) against the database.
+        /// </summary>
+        /// <param name="sql">The raw SQL query or command to execute.</param>
+        /// <param name="parameters">Optional parameters to pass to the SQL query.</param>
+        /// <returns>The number of rows affected by the query.</returns>
+        Task<int> ExecuteRawSqlAsync(string sql, params object[] parameters);
+
+        /// <summary>
+        /// Executes a raw SQL query and maps the results to a specified type.
+        /// </summary>
+        /// <typeparam name="TResult">The type of objects to map the query results to.</typeparam>
+        /// <param name="sql">The raw SQL query to execute.</param>
+        /// <param name="parameters">Optional parameters to pass to the SQL query.</param>
+        /// <returns>A collection of objects representing the query results.</returns>
+        Task<IEnumerable<TResult>> ExecuteQueryAsync<TResult>(string sql, params object[] parameters)
+            where TResult : class;
+        #endregion
+
+        #region Store Procedure
+        /// <summary>
+        /// Executes a stored procedure that modifies data (e.g., INSERT, UPDATE, DELETE).
+        /// </summary>
+        /// <param name="procedureName">The name of the stored procedure to execute.</param>
+        /// <param name="parameters">Optional parameters to pass to the stored procedure.</param>
+        /// <returns>The number of rows affected by the stored procedure.</returns>
+        Task<int> ExecuteStoredProcedureAsync(string procedureName, params object[] parameters);
+
+        /// <summary>
+        /// Executes a stored procedure that retrieves data and maps the results to a specified type.
+        /// </summary>
+        /// <typeparam name="TResult">The type of objects to map the query results to. Must be a reference type.</typeparam>
+        /// <param name="procedureName">The name of the stored procedure to execute.</param>
+        /// <param name="parameters">Optional parameters to pass to the stored procedure.</param>
+        /// <returns>A collection of objects representing the query results.</returns>
+        Task<IEnumerable<TResult>> ExecuteStoredProcedureQueryAsync<TResult>(string procedureName, params object[] parameters)
+            where TResult : class;
         #endregion
     }
 }

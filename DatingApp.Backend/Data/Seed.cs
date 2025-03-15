@@ -13,58 +13,84 @@ namespace DatingApp.Backend.Data
         {
             if (await context.Users.AnyAsync()) return;
 
-            using HMACSHA512 hmac = new HMACSHA512();
-            var salt = hmac.Key;
-            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes("123"));
-
             var appUserFaker = new AutoFaker<AppUser>()
-                .RuleFor(up => up.Id, default(int))
+                .RuleFor(up => up.Id, f => 0) // EF Core will auto-generate this
                 .RuleFor(up => up.Gender, f => f.PickRandom(new[] { Bogus.DataSets.Name.Gender.Male.ToString().ToLower(), Bogus.DataSets.Name.Gender.Female.ToString().ToLower() }))
                 .RuleFor(up => up.UserName, (f, u) =>
                 {
-                    var gender = u.Gender.ToLower() == Bogus.DataSets.Name.Gender.Male.ToString().ToLower() ? Bogus.DataSets.Name.Gender.Male : Bogus.DataSets.Name.Gender.Female;
+                    var gender = u.Gender?.ToLower() == Bogus.DataSets.Name.Gender.Male.ToString().ToLower() ? Bogus.DataSets.Name.Gender.Male : Bogus.DataSets.Name.Gender.Female;
                     return f.Name.FirstName(gender).ToLower();
                 })
-                .RuleFor(up => up.KnownAs, (f, u) => u.UserName) // Use UserName value for KnownAs
-                .RuleFor(up => up.PasswordHash, hash)
-                .RuleFor(up => up.PasswordSalt, salt)
-                .RuleFor(up => up.CreatorUserId, default(int))
+                .RuleFor(up => up.KnownAs, (f, u) => u.UserName)
+                .RuleFor(up => up.PasswordSalt, f =>
+                {
+                    using HMACSHA512 hmac = new HMACSHA512();
+                    return hmac.Key;
+                })
+                .RuleFor(up => up.PasswordHash, (f, u) =>
+                {
+                    using HMACSHA512 hmac = new HMACSHA512(u.PasswordSalt);
+                    return hmac.ComputeHash(Encoding.UTF8.GetBytes("P@ssword@123"));
+                })
+                .RuleFor(up => up.CreatorUserId, f => null)
                 .RuleFor(up => up.CreationTime, DateTime.UtcNow)
-                .RuleFor(up => up.LastModificationTime, default(DateTime))
-                .RuleFor(up => up.LastModifierUserId, default(int))
+                .RuleFor(up => up.LastModificationTime, f => null)
+                .RuleFor(up => up.LastModifierUserId, f => null)
                 .RuleFor(up => up.IsDeleted, false)
-                .RuleFor(up => up.DeleterUserId, default(int))
-                .RuleFor(up => up.DeletionTime, default(DateTime))
-                .RuleFor(up => up.LastActive, default(DateTime))
+                .RuleFor(up => up.DeleterUserId, f => null)
+                .RuleFor(up => up.DeletionTime, f => null)
+                .RuleFor(up => up.LastActive, f => default(DateTime))
                 .RuleFor(up => up.Introduction, f => f.Lorem.Text())
                 .RuleFor(up => up.LookingFor, f => f.Lorem.Text())
-                .RuleFor(up => up.LookingFor, f => f.Lorem.Text())
-                .RuleFor(up => up.City, f => f.Address.City())  
+                .RuleFor(up => up.City, f => f.Address.City())
                 .RuleFor(up => up.Country, f => f.Address.Country())
                 .RuleFor(up => up.Photos, (f, u) =>
                 {
-                    // Generate a random number between 1 and 100
-                    var randomNumber = f.Random.Int(1, 100);
-                    var baseUrl = u.Gender == Bogus.DataSets.Name.Gender.Male.ToString().ToLower()
-                        ? $"https://randomuser.me/api/portraits/men/{randomNumber}.jpg"
-                        : $"https://randomuser.me/api/portraits/women/{randomNumber}.jpg";
-
-                    return new List<Photo>
+                    var photos = new List<Photo>();
+                    var photoCount = f.Random.Int(1, 5);
+                    for (int i = 0; i < photoCount; i++)
                     {
-                        new Photo
+                        var randomNumber = f.Random.Int(1, 100);
+                        var baseUrl = u.Gender == Bogus.DataSets.Name.Gender.Male.ToString().ToLower()
+                            ? $"https://randomuser.me/api/portraits/men/{randomNumber}.jpg"
+                            : $"https://randomuser.me/api/portraits/women/{randomNumber}.jpg";
+
+                        photos.Add(new Photo
                         {
                             Url = baseUrl,
-                            IsMain = true
-                        }
-                    };
+                            IsMain = i == 0,
+                            IsDeleted = false,
+                            CreationTime = DateTime.UtcNow,
+                            CreatorUserId = null,
+                            DeleterUserId = null,
+                            DeletionTime = null,
+                            LastModificationTime = null,
+                            LastModifierUserId = null,
+                            PublicId = null,
+                            AppUserId = 0, // Temporarily set to 0
+                            Id = 0
+                        });
+                    }
+                    return photos;
                 });
 
+            var appUsers = appUserFaker.Generate(5);
 
-            var appUsers = appUserFaker.Generate(5); // Generates a list of user profiles
+            // Add users to the database
+            await context.Users.AddRangeAsync(appUsers);
+            await context.SaveChangesAsync();
 
-            await context.Users.AddRangeAsync(appUsers);  
-            await context.SaveChangesAsync();   
+            // Assign AppUserId to each photo
+            foreach (var user in appUsers)
+            {
+                foreach (var photo in user.Photos)
+                {
+                    photo.AppUserId = user.Id; // Assign the correct AppUserId
+                }
+            }
 
+            // Save changes again to persist the updated Photos
+            await context.SaveChangesAsync();
         }
     }
 }

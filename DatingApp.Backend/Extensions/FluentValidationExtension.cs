@@ -4,7 +4,7 @@ using System.Reflection;
 
 namespace DatingApp.Backend.Extensions
 {
-    public static class FluentValidationExtensions
+    public static class FluentValidationExtension
     {
         /// <summary>
         /// Configures FluentValidation for automatic validation and registers validators from the specified assembly.

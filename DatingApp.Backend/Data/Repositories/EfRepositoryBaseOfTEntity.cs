@@ -1,6 +1,5 @@
 ﻿using DatingApp.Backend.Core.Auditing.Interfaces;
 using DatingApp.Backend.Core.Repositories;
-using Microsoft.EntityFrameworkCore;
 
 namespace DatingApp.Backend.Data.Repositories
 {

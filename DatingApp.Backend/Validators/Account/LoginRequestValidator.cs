@@ -1,11 +1,11 @@
 ﻿using DatingApp.Backend.Models.User;
 using FluentValidation;
 
-namespace DatingApp.Backend.Validators.User
+namespace DatingApp.Backend.Validators.Account
 {
-    public class RegisterUserValidator: AbstractValidator<RegisterUserInput>
+    public class LoginRequestValidator : AbstractValidator<LoginUserInput>
     {
-        public RegisterUserValidator()
+        public LoginRequestValidator()
         {
             RuleFor(x => x.UserName)
                 .NotEmpty().WithMessage("Username is required.")

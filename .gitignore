@@ -363,3 +363,6 @@ MigrationBackup/
 FodyWeavers.xsd
 /DatingApp.Backend/Data/DatingApp.db-shm
 /DatingApp.Backend/Data/DatingApp.db-wal
+/DatingApp.Backend/Data/Repositories/SqlServer/ISqlServerRepository.cs
+/DatingApp.Backend/Data/Repositories/SqlServer/SqlServerRepository.cs
+/DatingApp.Backend/Core/Repositories/IDatabaseRepository.cs

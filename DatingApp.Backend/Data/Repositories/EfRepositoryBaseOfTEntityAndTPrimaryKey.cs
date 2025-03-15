@@ -147,7 +147,8 @@ namespace DatingApp.Backend.Data.Repositories
             return await query.FirstOrDefaultAsync(predicate);
         }
 
-        public override async Task<IList<TEntity>> GetAllByCondition(Expression<Func<TEntity, bool>> expression, Func<IQueryable<TEntity>, IIncludableQueryable<TEntity, object>> includes = null)
+        public override async Task<IList<TEntity>> GetAllByCondition(Expression<Func<TEntity, bool>> expression, 
+                                                                     Func<IQueryable<TEntity>, IQueryable<TEntity>> includes = null)
         {
             IQueryable<TEntity> queryable = Context.Set<TEntity>();
             if (includes != null)
@@ -176,7 +177,7 @@ namespace DatingApp.Backend.Data.Repositories
         }
         public override async Task AddRangeAsync(IList<TEntity> entities)
         {
-            await this.Table.AddRangeAsync(entities);
+            await Table.AddRangeAsync(entities);
         }
         #endregion
 
@@ -198,7 +199,17 @@ namespace DatingApp.Backend.Data.Repositories
         //Update the List of Entity
         public override void UpdateRange(IList<TEntity> entities)
         {
-            this.Table.UpdateRange(entities);
+            Table.UpdateRange(entities);
+        }
+
+        public override async Task<int> ExecuteUpdateAsync(Expression<Func<TEntity, bool>> predicate,
+        IDictionary<Expression<Func<TEntity, object>>, object> propertyUpdates)
+        {
+            var updateExpression = BuildSetPropertyCalls(propertyUpdates);
+            return await this.Table
+                .Where(predicate)
+                .ExecuteUpdateAsync(updateExpression);
+
         }
         #endregion
 
@@ -233,6 +244,13 @@ namespace DatingApp.Backend.Data.Repositories
             {
                 Table.RemoveRange(entities); // Remove the entities from the DbSet
             }
+        }
+
+        public override async Task<int> ExecuteDeleteAsync(Expression<Func<TEntity, bool>> predicate)
+        {
+            return await Table
+                .Where(predicate)
+                .ExecuteDeleteAsync();
         }
         #endregion
 
@@ -309,6 +327,127 @@ namespace DatingApp.Backend.Data.Repositories
             Context.Entry(entity).Reference(propertyExpression).Load();
         }
         #endregion
+
+        #region RAW SQL
+        /// <inheritdoc />
+        public override async Task<int> ExecuteRawSqlAsync(string sql, params object[] parameters)
+        {
+            return await Context.Database.ExecuteSqlRawAsync(sql, parameters);
+        }
+        /// <inheritdoc />
+        public override async Task<IEnumerable<TResult>> ExecuteQueryAsync<TResult>(string sql, params object[] parameters)
+            where TResult : class
+        {
+            return await Context.Set<TResult>()
+                .FromSqlRaw(sql, parameters)
+                .ToListAsync();
+        }
+        #endregion
+
+        #region Store Procedure
+        /// <inheritdoc />
+        public override async Task<int> ExecuteStoredProcedureAsync(string procedureName, params object[] parameters)
+        {
+            /// <summary>
+            /// Executes a stored procedure that modifies data (e.g., INSERT, UPDATE, DELETE).
+            /// </summary>
+            /// <param name="procedureName">The name of the stored procedure to execute.</param>
+            /// <param name="parameters">Optional parameters to pass to the stored procedure.</param>
+            /// <returns>The number of rows affected by the stored procedure.</returns>
+            var sql = $"EXEC {procedureName} {FormatParameters(parameters)}";
+            return await Context.Database.ExecuteSqlRawAsync(sql, parameters);
+        }
+
+        /// <inheritdoc />
+        public override async Task<IEnumerable<TResult>> ExecuteStoredProcedureQueryAsync<TResult>(string procedureName, params object[] parameters)
+            where TResult : class
+        {
+            /// <summary>
+            /// Executes a stored procedure that retrieves data and maps the results to a specified type.
+            /// </summary>
+            /// <typeparam name="TResult">The type of objects to map the query results to. Must be a reference type.</typeparam>
+            /// <param name="procedureName">The name of the stored procedure to execute.</param>
+            /// <param name="parameters">Optional parameters to pass to the stored procedure.</param>
+            /// <returns>A collection of objects representing the query results.</returns>
+            var sql = $"EXEC {procedureName} {FormatParameters(parameters)}";
+            return await Context.Set<TResult>()
+                .FromSqlRaw(sql, parameters)
+                .ToListAsync();
+        }
+
+        /// <summary>
+        /// Formats parameters for inclusion in a SQL command.
+        /// </summary>
+        /// <param name="parameters">The parameters to format.</param>
+        /// <returns>A formatted string of parameters.</returns>
+        private static string FormatParameters(object[] parameters)
+        {
+            if (parameters == null || parameters.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            return string.Join(", ", parameters.Select((_, index) => $"@p{index}"));
+        }
+        #endregion
+
+        #region Helper
+        private static Expression<Func<SetPropertyCalls<TEntity>, SetPropertyCalls<TEntity>>>
+       BuildSetPropertyCalls(IDictionary<Expression<Func<TEntity, object>>, object> updates)
+        {
+            var parameter = Expression.Parameter(typeof(SetPropertyCalls<TEntity>), "s");
+            Expression body = parameter;
+
+            foreach (var update in updates)
+            {
+                var (propertyType, propertyExpr) = GetPropertyInfo(update.Key);
+                var value = update.Value;
+
+                var setPropertyMethod = typeof(SetPropertyCalls<TEntity>)
+                    .GetMethods()
+                    .First(m => m.Name == "SetProperty" && m.GetParameters().Length == 2)
+                    .MakeGenericMethod(propertyType);
+
+                var valueLambda = Expression.Lambda(
+                    typeof(Func<,>).MakeGenericType(
+                        typeof(SetPropertyCalls<TEntity>),
+                        propertyType),
+                    Expression.Constant(value),
+                    Expression.Parameter(typeof(SetPropertyCalls<TEntity>))
+                );
+
+                body = Expression.Call(
+                    body,
+                    setPropertyMethod,
+                    Expression.Quote(propertyExpr),
+                    Expression.Quote(valueLambda)
+                );
+            }
+
+            return Expression.Lambda<Func<SetPropertyCalls<TEntity>, SetPropertyCalls<TEntity>>>(
+                body,
+                parameter
+            );
+        }
+
+        private static (Type propertyType, LambdaExpression expression) GetPropertyInfo(
+            Expression<Func<TEntity, object>> propertySelector)
+        {
+            if (propertySelector.Body is UnaryExpression unary &&
+                unary.Operand is MemberExpression member)
+            {
+                return (member.Type, Expression.Lambda(member, propertySelector.Parameters));
+            }
+
+            if (propertySelector.Body is MemberExpression directMember)
+            {
+                return (directMember.Type, propertySelector);
+            }
+
+            throw new ArgumentException("Invalid property selector expression");
+        }
+        #endregion
+
 
         ///// <summary>
         ///// In ASP.NET Core, when you register DbContext with a scoped lifetime (e.g., services.AddDbContext<DatingAppContext>()), the DI container ensures that:.

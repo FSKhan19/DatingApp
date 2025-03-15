@@ -18,7 +18,7 @@ namespace DatingApp.Backend.Extensions
                     options.TokenValidationParameters = new TokenValidationParameters
                     {
                         ValidateIssuerSigningKey = true,
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(s: configuration["TokenSecret"] ?? string.Empty)),
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(s: configuration["Token:Secret"] ?? string.Empty)),
                         ValidateAudience = false,
                         ValidateIssuer = false
                     };
