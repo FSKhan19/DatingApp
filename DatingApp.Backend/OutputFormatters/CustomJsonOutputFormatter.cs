@@ -27,36 +27,33 @@ namespace DatingApp.Backend.OutputFormatters
             SupportedEncodings.Add(Encoding.Unicode);
         }
 
-        public override Task WriteResponseBodyAsync(OutputFormatterWriteContext context,
-                                                    Encoding selectedEncoding)
+        public override Task WriteResponseBodyAsync(OutputFormatterWriteContext context, Encoding selectedEncoding)
         {
-            var response = new ResponseWrapperModel()
+            var response = new ResponseWrapperModel
             {
                 StatusCode = (HttpStatusCode)context.HttpContext.Response.StatusCode,
             };
-            object? data = context.Object;
-            if (data is ValidationProblemDetails validationErrors)
-                response.Errors = TransformValidationProblemDetailsIntoErrors(validationErrors);
-            else if (data is ProblemDetails problemDetails)
-                response.Errors = problemDetails.Title;
-            else if (response.StatusCode == HttpStatusCode.BadRequest)
-                response.Errors = data;
-            else if (response.StatusCode == HttpStatusCode.Unauthorized)
-                response.Errors = data;
-            else if (response.StatusCode == HttpStatusCode.NotFound)
-                response.Errors = data;
-            else if (response.StatusCode == HttpStatusCode.Forbidden)
-                response.Errors = data;
 
-            if (response.Errors is null && response.Data is null)
+            // Automatically detect errors and assign them
+            if (context.Object is ValidationProblemDetails validationErrors)
+            {
+                response.Errors = validationErrors.Errors.SelectMany(kvp => kvp.Value).ToList();
+            }
+            else if (context.Object is ProblemDetails problemDetails)
+            {
+                response.Errors = problemDetails.Title ?? "An error occurred.";
+            }
+            else if ((int)response.StatusCode >= 400) // Handle all 4xx and 5xx errors dynamically
+            {
+                response.Errors = context.Object;
+            }
+            else
             {
                 response.Success = true;
-                response.Data = data;
+                response.Data = context.Object;
             }
-            var jsonOptions = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            };
+
+            var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
             var json = JsonSerializer.Serialize(response, jsonOptions);
 
             return context.HttpContext.Response.WriteAsync(json);
@@ -64,26 +61,7 @@ namespace DatingApp.Backend.OutputFormatters
 
         public override bool CanWriteResult(OutputFormatterCanWriteContext context)
         {
-            // Check if the response type is supported
-            return context.ObjectType == typeof(object) || context.ObjectType.IsClass;
+            return context.ObjectType != null && !context.ObjectType.IsPrimitive;
         }
-
-
-        private object? TransformValidationProblemDetailsIntoErrors(ValidationProblemDetails validation)
-        {
-            var errorMessageList = new List<string>();
-            foreach (var kvp in validation.Errors)
-            {
-                var messages = kvp.Value as IEnumerable<string>;
-                if (messages != null)
-                {
-                    errorMessageList.AddRange(messages.Select(x => x).ToList());
-                }
-            }
-
-            return errorMessageList;
-        }
-
-
     }
 }
