@@ -18,6 +18,7 @@ using DatingApp.Backend.Core.Entities;
 using Microsoft.AspNetCore.Identity;
 using System.Reflection;
 using DatingApp.Backend.Configs.Mapping;
+using DatingApp.Backend.Exceptions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,6 +57,9 @@ builder.Services.AddControllers(options =>
     options.OutputFormatters.Insert(0, new CustomJsonOutputFormatter());
 });
 
+// Global Exception Handler
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
 // JWT and Identity Services
 builder.Services.AddIdentityServices(builder.Configuration);
 
@@ -72,8 +76,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "DatingApp v1"));
 }
 
-// Register exception handling middleware
-app.UseMiddleware<ExceptionHandlingMiddleware>();  // Exception handling middleware should be first
+// Enable exception handling middleware
+app.UseExceptionHandler(options => { });
 
 // Redirect HTTP to HTTPS
 app.UseHttpsRedirection();
