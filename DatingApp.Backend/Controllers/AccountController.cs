@@ -1,8 +1,8 @@
-﻿using AutoMapper;
-using DatingApp.Backend.Consts;
+﻿using DatingApp.Backend.Consts;
 using DatingApp.Backend.Dtos.User;
 using DatingApp.Backend.Models.User;
 using DatingApp.Backend.Services.Interfaces;
+using MapsterMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;

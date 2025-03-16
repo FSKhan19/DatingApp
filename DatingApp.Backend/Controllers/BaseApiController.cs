@@ -1,6 +1,4 @@
-﻿using AutoMapper;
-using DatingApp.Backend.Data;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 
 namespace DatingApp.Backend.Controllers
 {

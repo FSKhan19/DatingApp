@@ -1,5 +1,4 @@
-﻿using AutoMapper;
-using DatingApp.Backend.Core;
+﻿using DatingApp.Backend.Core;
 using DatingApp.Backend.Core.Entities;
 using DatingApp.Backend.Models.User;
 using DatingApp.Backend.Services.Interfaces;
@@ -11,6 +10,7 @@ using DatingApp.Backend.Dtos.User;
 using System.Drawing.Printing;
 using System.Security.Cryptography;
 using System.Text;
+using MapsterMapper;
 
 namespace DatingApp.Backend.Services
 {

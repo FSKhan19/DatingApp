@@ -42,7 +42,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.AddFluentValidationWithAutoRegistration(Assembly.GetExecutingAssembly());
 
 // Add AutoMapper
-builder.Services.AddAutoMapper(typeof(AutoMapperProfile).Assembly);
+builder.Services.AddMapsterConfig();
 
 // Add CORS
 builder.Services.AddCors();
