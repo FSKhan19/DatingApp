@@ -6,6 +6,7 @@ using System.Text.Json;
 
 namespace DatingApp.Backend.Middlewares
 {
+    [Obsolete("In Use => GlobalExceptionHandler")]
     public class ExceptionHandlingMiddleware
     {
         private readonly RequestDelegate _next;
