@@ -11,6 +11,7 @@ namespace DatingApp.Backend.Configs.Mapping
         {
             config.NewConfig<AppUser, UserDto>().TwoWays();
             config.NewConfig<RegisterUserInput, CreateUserInput>();
+            config.NewConfig<AppUser, UserCredentialsDto>();
         }
     }
 }

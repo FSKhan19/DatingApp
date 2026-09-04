@@ -17,17 +17,22 @@ import { SharedModule } from '../_modules/shared.module';
 import { errorInterceptor } from '../_interceptors/error.interceptor';
 import { NotFoundComponent } from './errors/not-found/not-found.component';
 import { ServerErrorComponent } from './errors/server-error/server-error.component';
+import { authGuard } from '../_guards/auth.guard';
 
 @NgModule({
+  // Declare all components that belong to this module
   declarations: [AppComponent, NavComponent, HomeComponent, RegisterComponent, MessagesComponent, ListsComponent, MemberListComponent, MemberDetailComponent, NotFoundComponent, ServerErrorComponent],
+  // Import required Angular and custom modules
   imports: [
-    BrowserModule,
-    AppRoutingModule,
-    BrowserAnimationsModule,
-    FormsModule,
-    SharedModule
+    BrowserModule,             // Required for running the app in a browser
+    AppRoutingModule,          // Handles application routing
+    BrowserAnimationsModule,   // Enables animations (e.g. for Angular Material)
+    FormsModule,               // Supports template-driven forms
+    SharedModule               // Custom shared module (e.g. shared components, pipes, etc.)
   ],
+  // Register global services and HTTP interceptors using Angular's DI system
   providers: [provideHttpClient(withInterceptors([errorInterceptor]))],
+  // Define the root component to bootstrap the application
   bootstrap: [AppComponent],
 })
 export class AppModule {}

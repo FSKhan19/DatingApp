@@ -30,8 +30,8 @@ export class AccountService {
     this.currentUserSource.next(null);
   }
 
-  setCurrentUser(user: User) {
-    this.currentUserSource.next(user);
+  setCurrentUser(user: User | null) {
+  this.currentUserSource.next(user);
   }
 
   register(model: any) {

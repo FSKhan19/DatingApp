@@ -25,7 +25,7 @@ var builder = WebApplication.CreateBuilder(args);
 // App Configurations
 builder.Services.AddConfigurations(builder.Configuration);
 
-// App Configurations
+// Database
 builder.Services.AddDatabase(builder.Configuration);
 
 // App Services

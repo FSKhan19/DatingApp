@@ -1,18 +1,30 @@
 import { inject } from '@angular/core';
-import { CanActivateFn } from '@angular/router';
+import { CanActivateFn, CanActivateChildFn, RouterStateSnapshot } from '@angular/router';
 import { AccountService } from '../_services/account.service';
+import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
-import { map } from 'rxjs/operators';
+import { firstValueFrom } from 'rxjs';
 
-export const authGuard: CanActivateFn = (route, state) => {
+export const authGuard: CanActivateFn | CanActivateChildFn = async (route, state) => {
   const accountService = inject(AccountService);
+  const router = inject(Router);
   const toastr = inject(ToastrService);
 
-  return accountService.currentUser$.pipe(
-    map((user) => {
-      if (user) return true;
-      toastr.error('You shall not pass!');
-      return false;
-    })
-  );
+  try {
+    debugger
+    const user = await firstValueFrom(accountService.currentUser$);
+    console.log('User in guard:', user);
+
+    if (user) return true;
+
+    toastr.error('You shall not pass!');
+    router.navigate(['/']);
+    return false;
+  } catch (err) {
+    console.error('Auth Guard Error:', err);
+    toastr.error('Authentication check failed');
+    router.navigate(['/']);
+    return false;
+  }
 };
+

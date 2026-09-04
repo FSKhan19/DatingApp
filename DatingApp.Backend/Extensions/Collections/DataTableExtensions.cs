@@ -4,7 +4,7 @@ using System.Data;
 using System.Linq;
 using System.Text;
 
-namespace DatingApp.Backend.Extensions
+namespace DatingApp.Backend.Extensions.Collections
 {
 
     /// <summary>

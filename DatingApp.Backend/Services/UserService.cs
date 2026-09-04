@@ -11,6 +11,7 @@ using System.Drawing.Printing;
 using System.Security.Cryptography;
 using System.Text;
 using MapsterMapper;
+using Microsoft.AspNetCore.Identity;
 
 namespace DatingApp.Backend.Services
 {
@@ -39,31 +40,55 @@ namespace DatingApp.Backend.Services
 
         private async Task<bool> IsUserExists(string userName)
         {
-            return await _repositoryUser.GetAllReadonly().AnyAsync(m => m.UserName.Trim().ToLower() == userName.Trim().ToLower());
+            return await _repositoryUser
+                .GetAllReadonly()
+                .Select(x=>x.UserName)
+                .AnyAsync(m => m.Trim().ToLower() == userName.Trim().ToLower());
         }
         #endregion
 
         public async Task<(List<UserDto> Users, int TotalCount)> GetAsync(int pageNumber = 1, int pageSize = 10)
         {
-            var query = _repositoryUser.GetAllReadonly();
+            var query = _repositoryUser
+                .GetAllReadonly()
+                .Select(x=> new UserDto
+                {
+                    Id = x.Id,
+                    UserName = x.UserName,
+                    CreationTime = x.CreationTime,
+                    CreatorUserId = x.CreatorUserId,
+                    LastModificationTime = x.LastModificationTime,
+                    LastModifierUserId = x.LastModifierUserId
+                });
 
             var totalCount = await query.CountAsync();
-            var appUsers = await query
+            var userDtos = await query
                 .OrderBy(x => x.Id)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
 
-            return (_mapper.Map<List<UserDto>>(appUsers), totalCount);
+            return (userDtos, totalCount);
         }
 
         public async Task<Result<UserDto>> GetAsync(int id)
         {
-            var user = await _repositoryUser.GetAllReadonly().FirstOrDefaultAsync(m => m.Id == id);
+            var user = await _repositoryUser
+                .GetAllReadonly()
+                .Select(x => new UserDto
+                {
+                    Id = x.Id,
+                    UserName = x.UserName,
+                    CreationTime = x.CreationTime,
+                    CreatorUserId = x.CreatorUserId,
+                    LastModificationTime = x.LastModificationTime,
+                    LastModifierUserId = x.LastModifierUserId
+                })
+                .FirstOrDefaultAsync(m => m.Id == id);
 
             return user == null ?
                 Result<UserDto>.Failure(Error.Record.RECORD_NOT_FOUND) :
-                Result<UserDto>.Success(_mapper.Map<UserDto>(user));
+                Result<UserDto>.Success(user);
         }
         public async Task<Result<UserCredentialsDto>> CreateAsync(CreateUserInput input)
         {
@@ -136,17 +161,17 @@ namespace DatingApp.Backend.Services
         {
             var user = await _repositoryUser
                 .GetAllReadonly()
+                .Select(x=>new UserCredentialsDto { 
+                    Id =x.Id, 
+                    UserName = x.UserName,
+                    PasswordHash = x.PasswordHash,
+                    PasswordSalt = x.PasswordSalt
+                })    
                 .FirstOrDefaultAsync(x => x.UserName == userName);
 
             return user == null ?
                 Result<UserCredentialsDto>.Failure(Error.Record.INVALID_USERNAME) :
-                Result<UserCredentialsDto>.Success(new UserCredentialsDto
-                {
-                    Id = user.Id,
-                    UserName = user.UserName,
-                    PasswordHash = user.PasswordHash,
-                    PasswordSalt = user.PasswordSalt
-                });
+                Result<UserCredentialsDto>.Success(user);
         }
     }
 }
